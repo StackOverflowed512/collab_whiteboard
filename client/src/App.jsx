@@ -4,18 +4,45 @@ import {
     Route,
     Navigate,
 } from "react-router-dom";
-import Home from "./pages/Home";
+import { AuthProvider } from "./context/AuthContext";
+import Header from "./components/Header";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import Dashboard from "./pages/Dashboard";
 import Session from "./pages/Session";
 
 function App() {
     return (
         <Router>
-            <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/session/:sessionId" element={<Session />} />
-                {/* Redirect any unknown routes to the home page */}
-                <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
+            <AuthProvider>
+                <Header />
+                <Routes>
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/signup" element={<Signup />} />
+
+                    {/* Protected Routes */}
+                    <Route
+                        path="/dashboard"
+                        element={
+                            <ProtectedRoute>
+                                <Dashboard />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/session/:sessionId"
+                        element={
+                            <ProtectedRoute>
+                                <Session />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    {/* Redirect root to dashboard if logged in, otherwise to login */}
+                    <Route path="/" element={<Navigate to="/dashboard" />} />
+                </Routes>
+            </AuthProvider>
         </Router>
     );
 }

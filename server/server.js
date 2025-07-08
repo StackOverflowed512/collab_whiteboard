@@ -5,15 +5,15 @@ import cors from "cors";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import { nanoid } from "nanoid";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import Session from "./models/Session.js";
+import User from "./models/User.js";
 
-// Load environment variables
+// --- CONFIGURATION ---
 dotenv.config();
-
 const app = express();
 const server = http.createServer(app);
-
-// Configure CORS
 const io = new Server(server, {
     cors: {
         origin: process.env.CLIENT_URL || "http://localhost:5173",
@@ -21,48 +21,134 @@ const io = new Server(server, {
     },
 });
 
-// --- Database Connection ---
+app.use(cors());
+app.use(express.json());
+
+// --- DATABASE CONNECTION ---
 mongoose
     .connect(process.env.MONGODB_URI)
     .then(() => console.log("MongoDB connected successfully."))
     .catch((err) => console.error("MongoDB connection error:", err));
 
-// --- API Endpoint to create a new session ---
-app.use(cors()); // Enable CORS for API routes
-app.use(express.json());
+// --- MIDDLEWARE ---
+const verifyToken = (req, res, next) => {
+    const token = req.headers["authorization"]?.split(" ")[1]; // Bearer <token>
+    if (!token) return res.status(403).json({ message: "No token provided." });
 
-app.post("/api/session", async (req, res) => {
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err)
+            return res
+                .status(401)
+                .json({ message: "Failed to authenticate token." });
+        req.userId = decoded.id;
+        next();
+    });
+};
+
+// --- AUTH API ROUTES (THIS IS THE CORRECTED SECTION) ---
+app.post("/api/auth/signup", async (req, res) => {
     try {
-        const sessionId = nanoid(8); // Generate a short, unique ID
-        const newSession = new Session({ sessionId, strokes: [] });
+        const { username, password } = req.body;
+        if (!username || !password) {
+            return res
+                .status(400)
+                .json({ message: "Username and password are required." });
+        }
+        if (password.length < 6) {
+            return res
+                .status(400)
+                .json({ message: "Password must be at least 6 characters." });
+        }
+        const existingUser = await User.findOne({ username });
+        if (existingUser) {
+            return res.status(409).json({ message: "Username already taken." });
+        }
+        const hashedPassword = await bcrypt.hash(password, 12);
+        const newUser = new User({ username, password: hashedPassword });
+        await newUser.save();
+        res.status(201).json({ message: "User created successfully." });
+    } catch (error) {
+        res.status(500).json({
+            message: "Error signing up.",
+            error: error.message,
+        });
+    }
+});
+
+app.post("/api/auth/login", async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        const user = await User.findOne({ username });
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+        const isPasswordCorrect = await bcrypt.compare(password, user.password);
+        if (!isPasswordCorrect) {
+            return res.status(400).json({ message: "Invalid credentials." });
+        }
+        const token = jwt.sign(
+            { username: user.username, id: user._id },
+            process.env.JWT_SECRET,
+            { expiresIn: "24h" }
+        );
+        res.status(200).json({ token, username: user.username });
+    } catch (error) {
+        res.status(500).json({
+            message: "Error logging in.",
+            error: error.message,
+        });
+    }
+});
+
+// --- SESSION API ROUTES ---
+app.post("/api/session", verifyToken, async (req, res) => {
+    try {
+        const sessionId = nanoid(8);
+        const newSession = new Session({
+            sessionId,
+            strokes: [],
+            createdBy: req.userId,
+        });
         await newSession.save();
         res.status(201).json({ sessionId });
     } catch (error) {
-        console.error("Error creating session:", error);
         res.status(500).json({ error: "Failed to create session" });
     }
 });
 
-// --- Socket.IO Connection Handling ---
-io.on("connection", (socket) => {
-    console.log(`User connected: ${socket.id}`);
+// --- SOCKET.IO AUTH MIDDLEWARE & CONNECTION HANDLING ---
+io.use((socket, next) => {
+    // ... socket logic is unchanged ...
+    const token = socket.handshake.auth.token;
+    if (!token) return next(new Error("Authentication error: No token"));
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err) return next(new Error("Authentication error: Invalid token"));
+        socket.user = decoded;
+        next();
+    });
+});
 
-    // Event to join a specific whiteboard session
-    socket.on("join_session", async ({ sessionId, userName }) => {
+io.on("connection", (socket) => {
+    // ... socket logic is unchanged ...
+    console.log(
+        `User connected: ${socket.id}, username: ${socket.user.username}`
+    );
+
+    socket.on("join_session", async ({ sessionId }) => {
         try {
             socket.join(sessionId);
             console.log(
-                `User ${socket.id} (${userName}) joined session: ${sessionId}`
+                `User ${socket.user.username} joined session: ${sessionId}`
             );
-
-            // Fetch existing drawing data for the new user
             const session = await Session.findOne({ sessionId });
             if (session) {
                 socket.emit("load_drawing", session.strokes);
             } else {
-                // This case might happen if the session was created but something went wrong
-                // Or if a user tries to join a non-existent session URL directly
-                const newSession = new Session({ sessionId, strokes: [] });
+                const newSession = new Session({
+                    sessionId,
+                    strokes: [],
+                    createdBy: socket.user.id,
+                });
                 await newSession.save();
                 console.log(`New session created on-the-fly: ${sessionId}`);
             }
@@ -72,42 +158,31 @@ io.on("connection", (socket) => {
         }
     });
 
-    // Event to handle drawing data
     socket.on("draw", async (data) => {
-        // Broadcast the drawing data to all other clients in the same session
-        socket.to(data.sessionId).emit("draw", data.stroke);
-
-        // Save the stroke to the database
+        const { sessionId, element } = data;
+        const elementWithAuthor = { ...element, author: socket.user.username };
+        socket.to(sessionId).emit("draw", elementWithAuthor);
         try {
             await Session.updateOne(
-                { sessionId: data.sessionId },
-                { $push: { strokes: data.stroke } }
+                { sessionId },
+                { $push: { strokes: elementWithAuthor } }
             );
         } catch (error) {
             console.error("Error saving stroke:", error);
         }
     });
 
-    // Event to clear the whiteboard
     socket.on("clear_board", async ({ sessionId }) => {
-        // Broadcast the clear event to all clients in the session
         io.to(sessionId).emit("clear_board");
-
-        // Clear the strokes in the database
         try {
-            await Session.updateOne(
-                { sessionId: data.sessionId },
-                { $set: { strokes: [] } }
-            );
+            await Session.updateOne({ sessionId }, { $set: { strokes: [] } });
         } catch (error) {
             console.error("Error clearing board:", error);
         }
     });
 
-    // Handle user disconnection
     socket.on("disconnect", () => {
         console.log(`User disconnected: ${socket.id}`);
-        // Here you could add logic to remove the user from the session's user list
     });
 });
 

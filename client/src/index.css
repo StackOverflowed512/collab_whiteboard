@@ -121,3 +121,246 @@ canvas {
 .toolbar button:hover {
   background-color: #c82333;
 }
+
+
+/* ... (Keep all previous styles for .whiteboard-container, .toolbar, canvas) ... */
+
+/* Global Styles */
+body, html {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: #f0f2f5;
+  color: #333;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Header Styles */
+.app-header {
+  background-color: #fff;
+  padding: 0 2rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 60px;
+  flex-shrink: 0;
+}
+.logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #007bff;
+  text-decoration: none;
+}
+.app-header nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.user-greeting {
+  color: #555;
+}
+.logout-button {
+  padding: 8px 12px;
+  background-color: #f44336;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.logout-button:hover {
+  background-color: #d32f2f;
+}
+
+/* Auth Page Styles (Login & Signup) */
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-grow: 1;
+  padding: 2rem;
+}
+.auth-form {
+  background: white;
+  padding: 2rem 3rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+.auth-form h2 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+}
+.auth-form input {
+  width: 100%;
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box; /* Important */
+}
+.auth-form button {
+  width: 100%;
+  padding: 0.8rem;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+.auth-form p {
+  margin-top: 1rem;
+}
+.error-message { color: #d32f2f; }
+.success-message { color: #4caf50; }
+
+
+/* Dashboard Styles */
+.dashboard-container {
+  padding: 2rem;
+  max-width: 900px;
+  margin: 0 auto;
+  text-align: center;
+}
+.dashboard-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-top: 2rem;
+}
+.action-card {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.action-card h2 { margin-top: 0; }
+.action-card button, .session-id-input {
+  width: 100%;
+  padding: 0.8rem;
+  margin-top: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+.action-card button {
+  background-color: #28a745;
+  color: white;
+  cursor: pointer;
+  border: none;
+}
+.action-card form button {
+  background-color: #007bff;
+}
+
+@media (max-width: 768px) {
+  .dashboard-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ... (Keep all previous styles for global, header, auth, and dashboard) ... */
+
+/* Whiteboard Page Styles */
+.whiteboard-container {
+  position: relative;
+  width: 100vw;
+  height: calc(100vh - 60px); /* Full height minus header */
+  overflow: hidden;
+}
+
+canvas {
+  display: block;
+  background-color: #ffffff;
+  cursor: crosshair;
+}
+
+/* Updated Toolbar Styles */
+.toolbar {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 10;
+  flex-wrap: wrap; /* Allow toolbar to wrap on smaller screens */
+}
+
+.tool-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+}
+
+.tool-section:not(:last-child) {
+  border-right: 1px solid #e0e0e0;
+}
+
+.tool-button, .clear-button {
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  background-color: #f0f0f0;
+  color: #333;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.tool-button:hover {
+  background-color: #e0e0e0;
+}
+
+.tool-button.active {
+  background-color: #007bff;
+  color: white;
+  border-color: #0056b3;
+}
+
+.color-button {
+  width: 28px;
+  height: 28px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.color-button.active {
+  border-color: #007bff;
+  transform: scale(1.1);
+}
+
+.clear-button {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+}
+.clear-button:hover {
+  background-color: #c82333;
+}
+
+.toolbar input[type="range"] {
+  cursor: pointer;
+  width: 80px;
+}
+
+.toolbar label {
+  font-size: 0.9rem;
+  margin-right: 4px;
+}
