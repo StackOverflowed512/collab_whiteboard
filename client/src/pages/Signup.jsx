@@ -27,7 +27,6 @@ function Signup() {
             const data = await response.json();
             if (!response.ok)
                 throw new Error(data.message || "Failed to sign up");
-
             setSuccess("Account created successfully! Redirecting to login...");
             setTimeout(() => navigate("/login"), 2000);
         } catch (err) {

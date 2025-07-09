@@ -13,10 +13,15 @@ const userSchema = new mongoose.Schema(
             type: String,
             required: true,
         },
+        savedSessions: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Session",
+            },
+        ],
     },
     { timestamps: true }
 );
 
 const User = mongoose.model("User", userSchema);
-
 export default User;

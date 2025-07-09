@@ -45,7 +45,7 @@ const verifyToken = (req, res, next) => {
     });
 };
 
-// --- AUTH API ROUTES (THIS IS THE CORRECTED SECTION) ---
+// --- AUTH ROUTES ---
 app.post("/api/auth/signup", async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -100,13 +100,14 @@ app.post("/api/auth/login", async (req, res) => {
     }
 });
 
-// --- SESSION API ROUTES ---
+// --- SESSION ROUTES ---
 app.post("/api/session", verifyToken, async (req, res) => {
     try {
         const sessionId = nanoid(8);
         const newSession = new Session({
             sessionId,
             strokes: [],
+            messages: [],
             createdBy: req.userId,
         });
         await newSession.save();
@@ -116,9 +117,43 @@ app.post("/api/session", verifyToken, async (req, res) => {
     }
 });
 
-// --- SOCKET.IO AUTH MIDDLEWARE & CONNECTION HANDLING ---
+app.get("/api/user/saved-sessions", verifyToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.userId).populate({
+            path: "savedSessions",
+            select: "sessionId createdAt",
+            options: { sort: { createdAt: -1 } },
+        });
+        if (!user) return res.status(404).json({ message: "User not found." });
+        res.status(200).json(user.savedSessions);
+    } catch (error) {
+        res.status(500).json({
+            message: "Error fetching saved sessions.",
+            error: error.message,
+        });
+    }
+});
+
+app.post("/api/user/save-session", verifyToken, async (req, res) => {
+    const { sessionId } = req.body;
+    try {
+        const session = await Session.findOne({ sessionId });
+        if (!session)
+            return res.status(404).json({ message: "Session not found." });
+        await User.findByIdAndUpdate(req.userId, {
+            $addToSet: { savedSessions: session._id },
+        });
+        res.status(200).json({ message: "Session saved successfully." });
+    } catch (error) {
+        res.status(500).json({
+            message: "Error saving session.",
+            error: error.message,
+        });
+    }
+});
+
+// --- SOCKET.IO MIDDLEWARE ---
 io.use((socket, next) => {
-    // ... socket logic is unchanged ...
     const token = socket.handshake.auth.token;
     if (!token) return next(new Error("Authentication error: No token"));
     jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
@@ -128,8 +163,8 @@ io.use((socket, next) => {
     });
 });
 
+// --- SOCKET.IO EVENTS ---
 io.on("connection", (socket) => {
-    // ... socket logic is unchanged ...
     console.log(
         `User connected: ${socket.id}, username: ${socket.user.username}`
     );
@@ -137,20 +172,21 @@ io.on("connection", (socket) => {
     socket.on("join_session", async ({ sessionId }) => {
         try {
             socket.join(sessionId);
-            console.log(
-                `User ${socket.user.username} joined session: ${sessionId}`
-            );
             const session = await Session.findOne({ sessionId });
             if (session) {
-                socket.emit("load_drawing", session.strokes);
+                socket.emit("load_session_data", {
+                    strokes: session.strokes,
+                    messages: session.messages,
+                });
             } else {
                 const newSession = new Session({
                     sessionId,
                     strokes: [],
+                    messages: [],
                     createdBy: socket.user.id,
                 });
                 await newSession.save();
-                console.log(`New session created on-the-fly: ${sessionId}`);
+                console.log(`New session created: ${sessionId}`);
             }
         } catch (error) {
             console.error("Error joining session:", error);
@@ -158,8 +194,7 @@ io.on("connection", (socket) => {
         }
     });
 
-    socket.on("draw", async (data) => {
-        const { sessionId, element } = data;
+    socket.on("draw", async ({ sessionId, element }) => {
         const elementWithAuthor = { ...element, author: socket.user.username };
         socket.to(sessionId).emit("draw", elementWithAuthor);
         try {
@@ -169,6 +204,23 @@ io.on("connection", (socket) => {
             );
         } catch (error) {
             console.error("Error saving stroke:", error);
+        }
+    });
+
+    socket.on("send_message", async ({ sessionId, message }) => {
+        const messageData = {
+            text: message,
+            sender: socket.user.username,
+            timestamp: new Date(),
+        };
+        try {
+            await Session.updateOne(
+                { sessionId },
+                { $push: { messages: messageData } }
+            );
+            io.to(sessionId).emit("receive_message", messageData);
+        } catch (error) {
+            console.error("Error saving message:", error);
         }
     });
 
@@ -187,4 +239,4 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

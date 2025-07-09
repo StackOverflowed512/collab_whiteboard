@@ -20,8 +20,6 @@ function App() {
                 <Routes>
                     <Route path="/login" element={<Login />} />
                     <Route path="/signup" element={<Signup />} />
-
-                    {/* Protected Routes */}
                     <Route
                         path="/dashboard"
                         element={
@@ -38,13 +36,10 @@ function App() {
                             </ProtectedRoute>
                         }
                     />
-
-                    {/* Redirect root to dashboard if logged in, otherwise to login */}
                     <Route path="/" element={<Navigate to="/dashboard" />} />
                 </Routes>
             </AuthProvider>
         </Router>
     );
 }
-
 export default App;

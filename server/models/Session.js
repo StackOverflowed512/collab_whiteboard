@@ -8,11 +8,17 @@ const strokeSchema = new mongoose.Schema({
     author: { type: String },
 });
 
+const messageSchema = new mongoose.Schema({
+    text: { type: String, required: true },
+    sender: { type: String, required: true },
+    timestamp: { type: Date, default: Date.now },
+});
+
 const sessionSchema = new mongoose.Schema(
     {
         sessionId: { type: String, required: true, unique: true, index: true },
         strokes: [strokeSchema],
-        users: [{ id: String, name: String }],
+        messages: [messageSchema],
         createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     },
     { timestamps: true }

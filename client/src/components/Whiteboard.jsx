@@ -3,137 +3,126 @@ import { io } from "socket.io-client";
 import { AuthContext } from "../context/AuthContext";
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3001";
-const COLORS = ["#000000", "#FF0000", "#0000FF", "#00FF00"]; // Black, Red, Blue, Green
+const COLORS = ["#000000", "#FF0000", "#0000FF", "#00FF00"];
 
 const Whiteboard = ({ sessionId }) => {
     const canvasRef = useRef(null);
     const contextRef = useRef(null);
     const socketRef = useRef(null);
+    const messagesEndRef = useRef(null);
     const { token } = useContext(AuthContext);
 
-    // --- State Management ---
     const [isDrawing, setIsDrawing] = useState(false);
-    const [tool, setTool] = useState("brush"); // 'brush', 'rectangle', 'circle', 'triangle'
+    const [tool, setTool] = useState("brush");
     const [color, setColor] = useState(COLORS[0]);
     const [lineWidth, setLineWidth] = useState(5);
+    const [messages, setMessages] = useState([]);
+    const [chatInput, setChatInput] = useState("");
+    const [isCopied, setIsCopied] = useState(false);
+    const [isSaved, setIsSaved] = useState(false);
 
-    // Refs for drawing logic
-    const currentPoints = useRef([]); // For storing points of the current brush stroke
-    const startPoint = useRef(null); // For shapes
-    const snapshot = useRef(null); // To store canvas state for shape previews
+    const currentPoints = useRef([]);
+    const startPoint = useRef(null);
+    const snapshot = useRef(null);
 
-    // --- Drawing Utility Function ---
-    // This function can draw any element (brush stroke or shape) from a data object.
     const drawElement = (ctx, element) => {
         ctx.strokeStyle = element.color;
         ctx.lineWidth = element.lineWidth;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
-
         switch (element.type) {
             case "brush":
                 ctx.beginPath();
-                element.points.forEach((point, i) => {
-                    if (i === 0) ctx.moveTo(point.x, point.y);
-                    else ctx.lineTo(point.x, point.y);
-                });
+                element.points.forEach((p, i) =>
+                    i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)
+                );
                 ctx.stroke();
                 break;
             case "rectangle":
-                {
-                    const start = element.points[0];
-                    const end = element.points[1];
-                    ctx.strokeRect(
-                        start.x,
-                        start.y,
-                        end.x - start.x,
-                        end.y - start.y
-                    );
-                }
+                ctx.strokeRect(
+                    element.points[0].x,
+                    element.points[0].y,
+                    element.points[1].x - element.points[0].x,
+                    element.points[1].y - element.points[0].y
+                );
                 break;
             case "circle":
-                {
-                    const start = element.points[0];
-                    const end = element.points[1];
-                    const radius = Math.sqrt(
-                        Math.pow(end.x - start.x, 2) +
-                            Math.pow(end.y - start.y, 2)
-                    );
-                    ctx.beginPath();
-                    ctx.arc(start.x, start.y, radius, 0, 2 * Math.PI);
-                    ctx.stroke();
-                }
+                const radius = Math.hypot(
+                    element.points[1].x - element.points[0].x,
+                    element.points[1].y - element.points[0].y
+                );
+                ctx.beginPath();
+                ctx.arc(
+                    element.points[0].x,
+                    element.points[0].y,
+                    radius,
+                    0,
+                    2 * Math.PI
+                );
+                ctx.stroke();
                 break;
             case "triangle":
-                {
-                    const start = element.points[0];
-                    const end = element.points[1];
-                    ctx.beginPath();
-                    ctx.moveTo(start.x, start.y);
-                    ctx.lineTo(end.x, end.y);
-                    ctx.lineTo(start.x - (end.x - start.x), end.y);
-                    ctx.closePath();
-                    ctx.stroke();
-                }
+                ctx.beginPath();
+                ctx.moveTo(element.points[0].x, element.points[0].y);
+                ctx.lineTo(element.points[1].x, element.points[1].y);
+                ctx.lineTo(
+                    element.points[0].x -
+                        (element.points[1].x - element.points[0].x),
+                    element.points[1].y
+                );
+                ctx.closePath();
+                ctx.stroke();
                 break;
             default:
-                console.error("Unknown element type:", element.type);
+                break;
         }
     };
 
-    const clearCanvas = () => {
-        const canvas = canvasRef.current;
-        if (canvas) {
-            const context = canvas.getContext("2d");
-            context.clearRect(0, 0, canvas.width, canvas.height);
-        }
-    };
+    const clearCanvas = () =>
+        contextRef.current.clearRect(
+            0,
+            0,
+            canvasRef.current.width,
+            canvasRef.current.height
+        );
+    const scrollToBottom = () =>
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    useEffect(scrollToBottom, [messages]);
 
-    // --- Setup Effect for Socket.IO and Canvas ---
     useEffect(() => {
         if (!token) return;
+        const socket = io(SERVER_URL, { auth: { token } });
+        socketRef.current = socket;
 
         const canvas = canvasRef.current;
-        const context = canvas.getContext("2d");
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        contextRef.current = context;
-
-        socketRef.current = io(SERVER_URL, { auth: { token } });
-        const socket = socketRef.current;
+        canvas.width = canvas.parentElement.offsetWidth;
+        canvas.height = canvas.parentElement.offsetHeight;
+        contextRef.current = canvas.getContext("2d");
 
         socket.emit("join_session", { sessionId });
-
-        // Listen for the initial drawing state when joining
-        socket.on("load_drawing", (elements) => {
-            clearCanvas(); // Clear before loading to prevent duplicates on reconnect
-            elements.forEach((element) => drawElement(context, element));
+        socket.on("load_session_data", ({ strokes, messages }) => {
+            strokes.forEach((element) =>
+                drawElement(contextRef.current, element)
+            );
+            setMessages(messages || []);
         });
-
-        // Listen for new drawings from other users
-        socket.on("draw", (element) => {
-            drawElement(context, element);
-        });
-
+        socket.on("draw", (element) =>
+            drawElement(contextRef.current, element)
+        );
+        socket.on("receive_message", (message) =>
+            setMessages((prev) => [...prev, message])
+        );
         socket.on("clear_board", clearCanvas);
 
-        // ... other listeners
-
-        return () => {
-            socket.disconnect();
-        };
+        return () => socket.disconnect();
     }, [sessionId, token]);
 
-    // --- Drawing Event Handlers ---
-    const startDrawing = ({ nativeEvent }) => {
-        const { offsetX, offsetY } = nativeEvent;
+    const startDrawing = ({ nativeEvent: { offsetX, offsetY } }) => {
         setIsDrawing(true);
-
         if (tool === "brush") {
             currentPoints.current = [{ x: offsetX, y: offsetY }];
         } else {
             startPoint.current = { x: offsetX, y: offsetY };
-            // Save the current canvas state to draw previews over it
             snapshot.current = contextRef.current.getImageData(
                 0,
                 0,
@@ -143,26 +132,20 @@ const Whiteboard = ({ sessionId }) => {
         }
     };
 
-    const draw = ({ nativeEvent }) => {
+    const draw = ({ nativeEvent: { offsetX, offsetY } }) => {
         if (!isDrawing) return;
-        const { offsetX, offsetY } = nativeEvent;
-        const context = contextRef.current;
-
+        const ctx = contextRef.current;
         if (tool === "brush") {
             currentPoints.current.push({ x: offsetX, y: offsetY });
-            // For brush, draw the path locally for a smooth experience
-            drawElement(context, {
+            drawElement(ctx, {
                 type: "brush",
                 points: currentPoints.current,
                 color,
                 lineWidth,
             });
         } else {
-            // For shapes, restore the original canvas and draw the preview on top
-            if (snapshot.current) {
-                context.putImageData(snapshot.current, 0, 0);
-            }
-            drawElement(context, {
+            ctx.putImageData(snapshot.current, 0, 0);
+            drawElement(ctx, {
                 type: tool,
                 points: [startPoint.current, { x: offsetX, y: offsetY }],
                 color,
@@ -171,124 +154,193 @@ const Whiteboard = ({ sessionId }) => {
         }
     };
 
-    const finishDrawing = ({ nativeEvent }) => {
+    const finishDrawing = ({ nativeEvent: { offsetX, offsetY } }) => {
         if (!isDrawing) return;
         setIsDrawing(false);
-
         let element = null;
-
         if (tool === "brush") {
-            if (currentPoints.current.length > 1) {
+            if (currentPoints.current.length > 1)
                 element = {
                     type: "brush",
                     points: currentPoints.current,
                     color,
                     lineWidth,
                 };
-            }
         } else {
-            const { offsetX, offsetY } = nativeEvent;
             element = {
                 type: tool,
                 points: [startPoint.current, { x: offsetX, y: offsetY }],
                 color,
                 lineWidth,
             };
-            // Draw the final shape locally
             drawElement(contextRef.current, element);
         }
-
-        // If a valid element was created, emit it to the server
-        if (element) {
-            socketRef.current.emit("draw", { sessionId, element });
-        }
-
-        // Reset refs
+        if (element) socketRef.current.emit("draw", { sessionId, element });
         currentPoints.current = [];
         startPoint.current = null;
         snapshot.current = null;
     };
 
-    const handleClearBoard = () => {
-        if (
-            window.confirm(
-                "Are you sure? This will clear the board for everyone."
-            )
-        ) {
-            socketRef.current.emit("clear_board", { sessionId });
+    const handleSendMessage = (e) => {
+        e.preventDefault();
+        if (chatInput.trim()) {
+            socketRef.current.emit("send_message", {
+                sessionId,
+                message: chatInput,
+            });
+            setChatInput("");
+        }
+    };
+
+    const handleCopySessionId = () => {
+        navigator.clipboard.writeText(sessionId).then(() => {
+            setIsCopied(true);
+            setTimeout(() => setIsCopied(false), 2000);
+        });
+    };
+
+    const handleSaveSession = async () => {
+        try {
+            const response = await fetch(
+                `${SERVER_URL}/api/user/save-session`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ sessionId }),
+                }
+            );
+            if (!response.ok) throw new Error("Failed to save.");
+            setIsSaved(true);
+            setTimeout(() => setIsSaved(false), 2500);
+        } catch (error) {
+            alert("Could not save the session.");
         }
     };
 
     return (
-        <div className="whiteboard-container">
-            <div className="toolbar">
-                <div className="tool-section">
-                    <button
-                        className={`tool-button ${
-                            tool === "brush" ? "active" : ""
-                        }`}
-                        onClick={() => setTool("brush")}
-                    >
-                        Brush
-                    </button>
-                    <button
-                        className={`tool-button ${
-                            tool === "rectangle" ? "active" : ""
-                        }`}
-                        onClick={() => setTool("rectangle")}
-                    >
-                        Rect
-                    </button>
-                    <button
-                        className={`tool-button ${
-                            tool === "circle" ? "active" : ""
-                        }`}
-                        onClick={() => setTool("circle")}
-                    >
-                        Circle
-                    </button>
-                    <button
-                        className={`tool-button ${
-                            tool === "triangle" ? "active" : ""
-                        }`}
-                        onClick={() => setTool("triangle")}
-                    >
-                        Triangle
-                    </button>
-                </div>
-                <div className="tool-section">
-                    {COLORS.map((c) => (
+        <div className="whiteboard-page-container">
+            <div className="canvas-area">
+                <div className="toolbar">
+                    <div className="tool-section">
                         <button
-                            key={c}
-                            className={`color-button ${
-                                color === c ? "active" : ""
+                            className={`tool-button ${
+                                tool === "brush" ? "active" : ""
                             }`}
-                            style={{ backgroundColor: c }}
-                            onClick={() => setColor(c)}
+                            onClick={() => setTool("brush")}
+                        >
+                            Brush
+                        </button>
+                        <button
+                            className={`tool-button ${
+                                tool === "rectangle" ? "active" : ""
+                            }`}
+                            onClick={() => setTool("rectangle")}
+                        >
+                            Rect
+                        </button>
+                        <button
+                            className={`tool-button ${
+                                tool === "circle" ? "active" : ""
+                            }`}
+                            onClick={() => setTool("circle")}
+                        >
+                            Circle
+                        </button>
+                        <button
+                            className={`tool-button ${
+                                tool === "triangle" ? "active" : ""
+                            }`}
+                            onClick={() => setTool("triangle")}
+                        >
+                            Triangle
+                        </button>
+                    </div>
+                    <div className="tool-section">
+                        {COLORS.map((c) => (
+                            <button
+                                key={c}
+                                className={`color-button ${
+                                    color === c ? "active" : ""
+                                }`}
+                                style={{ backgroundColor: c }}
+                                onClick={() => setColor(c)}
+                            />
+                        ))}
+                    </div>
+                    <div className="tool-section">
+                        <label>Width:</label>
+                        <input
+                            type="range"
+                            min="1"
+                            max="50"
+                            value={lineWidth}
+                            onChange={(e) =>
+                                setLineWidth(Number(e.target.value))
+                            }
                         />
-                    ))}
+                    </div>
+                    <button
+                        className="tool-button save-button"
+                        onClick={handleSaveSession}
+                        disabled={isSaved}
+                    >
+                        {isSaved ? "Saved!" : "Save Whiteboard"}
+                    </button>
+                    <button
+                        className="tool-button copy-button"
+                        onClick={handleCopySessionId}
+                    >
+                        {isCopied ? "Copied!" : "Copy ID"}
+                    </button>
+                    <button
+                        className="clear-button"
+                        onClick={() =>
+                            socketRef.current.emit("clear_board", { sessionId })
+                        }
+                    >
+                        Clear
+                    </button>
                 </div>
-                <div className="tool-section">
-                    <label>Width:</label>
-                    <input
-                        type="range"
-                        min="1"
-                        max="50"
-                        value={lineWidth}
-                        onChange={(e) => setLineWidth(Number(e.target.value))}
-                    />
-                </div>
-                <button className="clear-button" onClick={handleClearBoard}>
-                    Clear
-                </button>
+                <canvas
+                    ref={canvasRef}
+                    onMouseDown={startDrawing}
+                    onMouseMove={draw}
+                    onMouseUp={finishDrawing}
+                    onMouseOut={finishDrawing}
+                />
             </div>
-            <canvas
-                ref={canvasRef}
-                onMouseDown={startDrawing}
-                onMouseMove={draw}
-                onMouseUp={finishDrawing}
-                onMouseOut={finishDrawing}
-            />
+            <div className="chat-panel">
+                <div className="chat-header">Session Chat</div>
+                <ul className="message-list">
+                    {messages.map((msg, index) => (
+                        <li key={index} className="message-item">
+                            <span className="message-sender">
+                                {msg.sender}:
+                            </span>
+                            <p className="message-text">{msg.text}</p>
+                            <span className="message-timestamp">
+                                {new Date(msg.timestamp).toLocaleTimeString(
+                                    [],
+                                    { hour: "2-digit", minute: "2-digit" }
+                                )}
+                            </span>
+                        </li>
+                    ))}
+                    <div ref={messagesEndRef} />
+                </ul>
+                <form className="chat-form" onSubmit={handleSendMessage}>
+                    <input
+                        type="text"
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        placeholder="Type a message..."
+                    />
+                    <button type="submit">Send</button>
+                </form>
+            </div>
         </div>
     );
 };

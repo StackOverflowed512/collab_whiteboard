@@ -1,5 +1,5 @@
-import React, { useState, useContext } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useContext } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3001";
@@ -7,8 +7,29 @@ const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3001";
 function Dashboard() {
     const [sessionIdToJoin, setSessionIdToJoin] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [savedSessions, setSavedSessions] = useState([]);
     const { token } = useContext(AuthContext);
     const navigate = useNavigate();
+
+    useEffect(() => {
+        const fetchSavedSessions = async () => {
+            if (!token) return;
+            try {
+                const response = await fetch(
+                    `${SERVER_URL}/api/user/saved-sessions`,
+                    {
+                        headers: { Authorization: `Bearer ${token}` },
+                    }
+                );
+                if (!response.ok)
+                    throw new Error("Failed to fetch saved sessions.");
+                setSavedSessions(await response.json());
+            } catch (error) {
+                console.error(error);
+            }
+        };
+        fetchSavedSessions();
+    }, [token]);
 
     const handleCreateSession = async () => {
         setIsLoading(true);
@@ -24,7 +45,6 @@ function Dashboard() {
             const { sessionId } = await response.json();
             navigate(`/session/${sessionId}`);
         } catch (error) {
-            console.error(error);
             alert("Could not create a new session.");
             setIsLoading(false);
         }
@@ -62,6 +82,33 @@ function Dashboard() {
                         <button type="submit">Join</button>
                     </form>
                 </div>
+            </div>
+            <div className="saved-sessions-section">
+                <h2>My Saved Whiteboards</h2>
+                {savedSessions.length > 0 ? (
+                    <ul className="sessions-list">
+                        {savedSessions.map((session) => (
+                            <li key={session._id} className="session-item">
+                                <Link to={`/session/${session.sessionId}`}>
+                                    <span className="session-id-text">
+                                        ID: {session.sessionId}
+                                    </span>
+                                    <span className="session-date">
+                                        Created:{" "}
+                                        {new Date(
+                                            session.createdAt
+                                        ).toLocaleDateString()}
+                                    </span>
+                                </Link>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <p>
+                        You have no saved whiteboards. Click "Save Whiteboard"
+                        in a session to add it here.
+                    </p>
+                )}
             </div>
         </div>
     );

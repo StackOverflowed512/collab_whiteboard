@@ -364,3 +364,80 @@ canvas {
   font-size: 0.9rem;
   margin-right: 4px;
 }
+
+
+/* Global & Reset */
+body, html {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: #f0f2f5;
+  color: #333;
+}
+#root { display: flex; flex-direction: column; min-height: 100vh; }
+* { box-sizing: border-box; }
+
+/* Header */
+.app-header { background-color: #fff; padding: 0 2rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; height: 60px; flex-shrink: 0; }
+.logo { font-size: 1.5rem; font-weight: bold; color: #007bff; text-decoration: none; }
+.app-header nav { display: flex; align-items: center; gap: 1rem; }
+.user-greeting { color: #555; }
+.logout-button { padding: 8px 12px; background-color: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; }
+
+/* Auth Forms */
+.auth-container { display: flex; justify-content: center; align-items: center; flex-grow: 1; padding: 2rem; }
+.auth-form { background: white; padding: 2rem 3rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
+.auth-form h2 { margin-top: 0; margin-bottom: 1.5rem; }
+.auth-form input { width: 100%; padding: 0.8rem; margin-bottom: 1rem; border: 1px solid #ccc; border-radius: 4px; }
+.auth-form button { width: 100%; padding: 0.8rem; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; }
+.auth-form p { margin-top: 1rem; }
+.error-message { color: #d32f2f; }
+.success-message { color: #4caf50; }
+
+/* Dashboard */
+.dashboard-container { padding: 2rem; max-width: 900px; margin: 0 auto; }
+.dashboard-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem; }
+.action-card { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.action-card h2 { margin-top: 0; }
+.action-card button, .session-id-input { width: 100%; padding: 0.8rem; margin-top: 1rem; border: 1px solid #ccc; border-radius: 4px; }
+.action-card button { background-color: #28a745; color: white; cursor: pointer; border: none; }
+.action-card form button { background-color: #007bff; }
+.saved-sessions-section { margin-top: 3rem; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.saved-sessions-section h2 { margin-top: 0; text-align: center; border-bottom: 1px solid #eee; padding-bottom: 1rem; margin-bottom: 1.5rem; }
+.sessions-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 1rem; }
+.session-item a { display: flex; justify-content: space-between; align-items: center; padding: 1rem; background-color: #f8f9fa; border-radius: 6px; text-decoration: none; color: #333; transition: background-color 0.2s, transform 0.2s; }
+.session-item a:hover { background-color: #e9ecef; transform: translateY(-2px); }
+.session-id-text { font-family: 'Courier New', Courier, monospace; font-weight: bold; }
+.session-date { font-size: 0.9rem; color: #6c757d; }
+
+/* Whiteboard Page */
+.whiteboard-page-container { display: flex; height: calc(100vh - 60px); width: 100vw; overflow: hidden; }
+.canvas-area { flex-grow: 1; position: relative; display: flex; flex-direction: column; }
+canvas { flex-grow: 1; display: block; background-color: #ffffff; cursor: crosshair; }
+
+/* Toolbar */
+.toolbar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background-color: rgba(255, 255, 255, 0.95); border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); padding: 8px; display: flex; align-items: center; gap: 8px; z-index: 10; flex-wrap: wrap; }
+.tool-section { display: flex; align-items: center; gap: 8px; padding: 0 8px; }
+.tool-section:not(:last-child) { border-right: 1px solid #e0e0e0; }
+.tool-button, .clear-button, .copy-button, .save-button { padding: 8px 12px; font-size: 0.9rem; background-color: #f0f0f0; color: #333; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; transition: background-color 0.2s, border-color 0.2s, color 0.2s; }
+.tool-button:hover, .copy-button:hover, .save-button:hover { background-color: #e0e0e0; }
+.tool-button.active { background-color: #007bff; color: white; border-color: #0056b3; }
+.color-button { width: 28px; height: 28px; border: 2px solid transparent; border-radius: 50%; cursor: pointer; transition: transform 0.2s, border-color 0.2s; }
+.color-button.active { border-color: #007bff; transform: scale(1.1); }
+.save-button { background-color: #28a745; color: white; border: none; }
+.save-button:disabled { background-color: #1e7e34; cursor: not-allowed; }
+.copy-button { background-color: #17a2b8; color: white; border: none; }
+.clear-button { background-color: #dc3545; color: white; border: none; }
+.toolbar input[type="range"] { cursor: pointer; width: 80px; }
+
+/* Chat Panel */
+.chat-panel { width: 320px; flex-shrink: 0; background-color: #f8f9fa; border-left: 1px solid #dee2e6; display: flex; flex-direction: column; height: 100%; }
+.chat-header { padding: 1rem; font-weight: bold; font-size: 1.2rem; text-align: center; border-bottom: 1px solid #dee2e6; background-color: #e9ecef; }
+.message-list { flex-grow: 1; overflow-y: auto; padding: 1rem; list-style-type: none; margin: 0; }
+.message-item { margin-bottom: 1rem; display: flex; flex-direction: column; }
+.message-sender { font-weight: bold; color: #007bff; font-size: 0.9rem; margin-bottom: 4px; }
+.message-text { background-color: #fff; padding: 8px 12px; border-radius: 12px; border-top-left-radius: 0; margin: 0; word-wrap: break-word; }
+.message-timestamp { font-size: 0.75rem; color: #6c757d; align-self: flex-end; margin-top: 4px; }
+.chat-form { display: flex; padding: 1rem; border-top: 1px solid #dee2e6; background-color: #f8f9fa; }
+.chat-form input { flex-grow: 1; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px; margin-right: 0.5rem; }
+.chat-form button { padding: 0.5rem 1rem; border: none; background-color: #007bff; color: white; border-radius: 4px; cursor: pointer; }

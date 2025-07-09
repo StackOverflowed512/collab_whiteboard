@@ -1,5 +1,5 @@
 import React, { useState, useContext } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3001";
@@ -9,7 +9,6 @@ function Login() {
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const { login } = useContext(AuthContext);
-    const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -21,15 +20,9 @@ function Login() {
                 body: JSON.stringify({ username, password }),
             });
             const data = await response.json();
-            if (!response.ok) {
+            if (!response.ok)
                 throw new Error(data.message || "Failed to login");
-            }
-
-            // The login function from AuthContext handles saving the token and user data
             login({ username: data.username }, data.token);
-
-            // We don't need to navigate here, the AuthContext will handle it
-            // navigate('/dashboard');
         } catch (err) {
             setError(err.message);
         }
