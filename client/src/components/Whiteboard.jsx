@@ -38,6 +38,18 @@ const Whiteboard = ({ sessionId }) => {
                 );
                 ctx.stroke();
                 break;
+            case "eraser":
+                ctx.save();
+                ctx.globalCompositeOperation = "destination-out";
+                ctx.beginPath();
+                element.points.forEach((p, i) =>
+                    i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)
+                );
+                ctx.lineWidth = element.lineWidth;
+                ctx.strokeStyle = "rgba(0,0,0,1)";
+                ctx.stroke();
+                ctx.restore();
+                break;
             case "rectangle":
                 ctx.strokeRect(
                     element.points[0].x,
@@ -119,7 +131,7 @@ const Whiteboard = ({ sessionId }) => {
 
     const startDrawing = ({ nativeEvent: { offsetX, offsetY } }) => {
         setIsDrawing(true);
-        if (tool === "brush") {
+        if (tool === "brush" || tool === "eraser") {
             currentPoints.current = [{ x: offsetX, y: offsetY }];
         } else {
             startPoint.current = { x: offsetX, y: offsetY };
@@ -135,12 +147,12 @@ const Whiteboard = ({ sessionId }) => {
     const draw = ({ nativeEvent: { offsetX, offsetY } }) => {
         if (!isDrawing) return;
         const ctx = contextRef.current;
-        if (tool === "brush") {
+        if (tool === "brush" || tool === "eraser") {
             currentPoints.current.push({ x: offsetX, y: offsetY });
             drawElement(ctx, {
-                type: "brush",
+                type: tool,
                 points: currentPoints.current,
-                color,
+                color: tool === "eraser" ? "#ffffff" : color,
                 lineWidth,
             });
         } else {
@@ -158,12 +170,12 @@ const Whiteboard = ({ sessionId }) => {
         if (!isDrawing) return;
         setIsDrawing(false);
         let element = null;
-        if (tool === "brush") {
+        if (tool === "brush" || tool === "eraser") {
             if (currentPoints.current.length > 1)
                 element = {
-                    type: "brush",
+                    type: tool,
                     points: currentPoints.current,
-                    color,
+                    color: tool === "eraser" ? "#ffffff" : color,
                     lineWidth,
                 };
         } else {
@@ -232,6 +244,14 @@ const Whiteboard = ({ sessionId }) => {
                             onClick={() => setTool("brush")}
                         >
                             Brush
+                        </button>
+                        <button
+                            className={`tool-button ${
+                                tool === "eraser" ? "active" : ""
+                            }`}
+                            onClick={() => setTool("eraser")}
+                        >
+                            Eraser
                         </button>
                         <button
                             className={`tool-button ${
