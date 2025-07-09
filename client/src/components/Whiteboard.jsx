@@ -232,6 +232,25 @@ const Whiteboard = ({ sessionId }) => {
         }
     };
 
+    const handleDownload = () => {
+        const canvas = canvasRef.current;
+        // Create a new canvas with the same size
+        const exportCanvas = document.createElement("canvas");
+        exportCanvas.width = canvas.width;
+        exportCanvas.height = canvas.height;
+        const exportCtx = exportCanvas.getContext("2d");
+        // Fill background with white
+        exportCtx.fillStyle = "#fff";
+        exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+        // Draw the original canvas on top
+        exportCtx.drawImage(canvas, 0, 0);
+        // Download as PNG
+        const link = document.createElement("a");
+        link.download = `whiteboard-${sessionId}.png`;
+        link.href = exportCanvas.toDataURL("image/png");
+        link.click();
+    };
+
     return (
         <div className="whiteboard-page-container">
             <div className="canvas-area">
@@ -314,6 +333,12 @@ const Whiteboard = ({ sessionId }) => {
                         onClick={handleCopySessionId}
                     >
                         {isCopied ? "Copied!" : "Copy ID"}
+                    </button>
+                    <button
+                        className="tool-button download-button"
+                        onClick={handleDownload}
+                    >
+                        Download
                     </button>
                     <button
                         className="clear-button"
